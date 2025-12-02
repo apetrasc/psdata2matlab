@@ -8,9 +8,10 @@ import h5py
 from scipy.signal import hilbert
 def detect_triggers_from_signal(
     file_path: str,
-    start_time: float,
-    duration: float,
-    amplitude_threshold: float,
+    device: str = "cuda:1",
+    start_time: float = 0.0,
+    duration: float = 5.0,
+    amplitude_threshold: float = 2,
     window_width: float = 0.001,
     signal_key: str = "TDX1",
     interval_key: str = "Tinterval"
@@ -62,9 +63,8 @@ def detect_triggers_from_signal(
         raise KeyError(f"Specified key '{e}' not found in file")
     
     # Select GPU/CPU device
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
-    
     # Extract data from specified time range
     start_idx = int(start_time * Fs)
     duration_samples = int(duration * Fs)
@@ -292,7 +292,6 @@ def mat2npz_exp(file_path, output_dir, start_time=0.0, duration=5.0, amplitude_t
     processed_data=raw_data[100:14100,2708:,:]
     print(f"processed_data.shape: {processed_data.shape}")
     print(f"max: {np.max(processed_data)}")
-    # English comment: Check for NaN values and replace them with 0 to avoid np.max returning nan
     if np.isnan(processed_data).any():
         print("Warning: processed_data contains NaN values. Replacing NaNs with 0.")
         processed_data = np.nan_to_num(processed_data, nan=0.0)

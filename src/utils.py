@@ -421,7 +421,7 @@ def calculate_gvf_and_signal(config_path, npz_path):
         r_ball = config["simulation"]["glass_radius"] * 1e3  # Convert to mm
         r_pipe = config["pipe"]["inner_radius"]
         surface = math.pi * (r_pipe ** 2)
-        height = config["grid"]["Nz"] * config["grid"]["dz"] * 1e3  # Convert to mm
+        height = (config["grid"]["Nz"]-config["simulation"]["pml_size"]) * config["grid"]["dz"] * 1e3  # Convert to mm
         ball = 4 * math.pi * r_ball ** 3 / 3
         v_sphere = num * ball
         v_pipe = surface * height
