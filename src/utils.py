@@ -1,12 +1,14 @@
 import scipy.io as sio
 import numpy as np
 import os
+import polars as pl
 from pprint import pprint
 import matplotlib.pyplot as plt
 import h5py
 import json
 import math
 from scipy.signal import hilbert
+from scipy.spatial.distance import pdist
 import torch
 def hilbert_cuda(img_data_torch, device):
             """
@@ -397,7 +399,7 @@ def analyze_mat_file_h5py(file_path):
             print(f"  {key}")
         print("\nFull structure and attributes:")
         f.visititems(print_attrs)
-def calculate_gvf_and_signal(config_path, npz_path):
+def calculate_gvf_and_signal(config_path, npz_path, csv_path):
     """
     Calculate the gas volume fraction (GVF) and extract the signal from the given files.
 
@@ -425,6 +427,15 @@ def calculate_gvf_and_signal(config_path, npz_path):
         ball = 4 * math.pi * r_ball ** 3 / 3
         v_sphere = num * ball
         v_pipe = surface * height
+
+        df = pl.read_csv(csv_path, has_header=False)
+        loc_arr = df.to_numpy()
+        loc_arr[:,0:2] *= r_pipe
+        loc_arr[:,2] *= height
+        dist_arr = pdist(loc_arr, metric='euclidean')
+        for dist in dist_arr:
+            if dist < 2*r_ball:
+                v_sphere -= 2*math.pi*(2/3*r_ball**3-r_ball**2*dist/2+1/3*(dist/2)**3)
 
     signal = np.load(npz_path)['processed_data']
     signal_tdx1 = signal[0, :, 0]
