@@ -1,0 +1,16 @@
+simulation:
+  base_data_dir: "/home/smatsubara/documents/airlift/data/simulation"
+
+experiment:
+  input:
+      base_data_dir: "/home/smatsubara/documents/airlift/data/experiments"
+  target: "/home/smatsubara/documents/airlift/data/experiments/target_valiables.csv"
+
+
+visualize:
+  dir: "/home/smatsubara/documents/airlift/data/visualize"
+
+output:
+  results_dir: "/home/smatsubara/documents/airlift/data/sandbox/results"
+  cleaned_dir: "/home/smatsubara/documents/airlift/data/cleaned"
+  results_other_dir: "/home/smatsubara/documents/airlift/data/results"
