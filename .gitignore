@@ -23,3 +23,13 @@ venv/
 .env.test
 .env.production
 venv38_clean/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+*.pywz
+*.pyzw
+*.pyzwz
+*.pyzwzw
