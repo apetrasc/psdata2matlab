@@ -8,7 +8,7 @@ import h5py
 from scipy.signal import hilbert
 def detect_triggers_from_signal(
     file_path: str,
-    device: str = "cuda:1",
+    device: Optional[str] = None,
     start_time: float = 0.0,
     duration: float = 5.0,
     amplitude_threshold: float = 2,
@@ -63,8 +63,32 @@ def detect_triggers_from_signal(
         raise KeyError(f"Specified key '{e}' not found in file")
     
     # Select GPU/CPU device
-    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
-    print(f"Using device: {device}")
+    if device is None:
+        # Auto-detect: use first available CUDA device, or CPU if CUDA not available
+        if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+            device_obj = torch.device('cuda:0')
+        else:
+            device_obj = torch.device('cpu')
+    elif device.startswith('cuda'):
+        # Check if CUDA is available
+        if not torch.cuda.is_available():
+            print(f"Warning: CUDA requested but not available. Falling back to CPU.")
+            device_obj = torch.device('cpu')
+        else:
+            # Extract device number from string like "cuda:1"
+            try:
+                device_num = int(device.split(':')[1]) if ':' in device else 0
+                if device_num >= torch.cuda.device_count():
+                    print(f"Warning: CUDA device {device_num} not available (only {torch.cuda.device_count()} devices). Using device 0 instead.")
+                    device_num = 0
+                device_obj = torch.device(f'cuda:{device_num}')
+            except (ValueError, IndexError):
+                print(f"Warning: Invalid device specification '{device}'. Using cuda:0.")
+                device_obj = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    else:
+        device_obj = torch.device(device)
+    
+    print(f"Using device: {device_obj}")
     # Extract data from specified time range
     start_idx = int(start_time * Fs)
     duration_samples = int(duration * Fs)
@@ -77,7 +101,7 @@ def detect_triggers_from_signal(
     chunk = signal_data[start_idx:end_idx]
     
     # Transfer data to GPU
-    chunk_tensor = torch.tensor(chunk, device=device, dtype=torch.float32)
+    chunk_tensor = torch.tensor(chunk, device=device_obj, dtype=torch.float32)
     chunk = chunk_tensor.cpu().numpy()
     chunk=chunk.flatten()
     # Detect positions exceeding threshold (GPU parallel processing)
