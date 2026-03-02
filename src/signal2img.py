@@ -6,6 +6,15 @@ from scipy import signal
 import os
 from scipy.signal import hilbert
 
+# フォントサイズを大きく設定
+plt.rcParams['font.size'] = 14  # デフォルトのフォントサイズ
+plt.rcParams['axes.labelsize'] = 16  # 軸ラベルのフォントサイズ
+plt.rcParams['axes.titlesize'] = 18  # タイトルのフォントサイズ
+plt.rcParams['xtick.labelsize'] = 14  # x軸目盛りのフォントサイズ
+plt.rcParams['ytick.labelsize'] = 14  # y軸目盛りのフォントサイズ
+plt.rcParams['legend.fontsize'] = 14  # 凡例のフォントサイズ
+plt.rcParams['figure.titlesize'] = 20  # 図全体のタイトルサイズ
+
 
 def generate_echomap(file_path, start_time=0.444, duration=0.001, 
                                     window_width=100e-6, amplitude_threshold=2.0, 
@@ -130,22 +139,19 @@ def generate_echomap(file_path, start_time=0.444, duration=0.001,
     hilbert_matrix_trimmed = hilbert_matrix[:, zero_samples:]
     adjusted_time_us_trimmed = adjusted_time_us[adjusted_time_us >= 0]
     
+    # 元の信号行列も同様にtrim（初期反射除去後の信号）
+    original_matrix = processed_pulses_np[:, zero_samples:]
+    
     # エラー回避のためにサイズチェックを追加
     if len(adjusted_time_us_trimmed) > 0:
-        # # Plot the entire matrix
-        # plt.figure(figsize=(12, 6))
-        # plt.imshow(hilbert_matrix_trimmed, aspect='auto', cmap='viridis', 
-        #         extent=[0, adjusted_time_us_trimmed[-1], n_pulses-0.5, -0.5])
-        # plt.colorbar(label='Amplitude')
-        # plt.xlabel('Time (μs)')
-        # plt.ylabel('Pulse Number')
-        # plt.title(f'Hilbert Transform Matrix ({n_pulses} pulses x {hilbert_matrix_trimmed.shape[1]} samples)')
-        # plt.tight_layout()
-        
         # 画像を保存する
         if output_dir is not None:
             # 出力ディレクトリが存在しない場合は作成
             os.makedirs(output_dir, exist_ok=True)
+            
+            # 入力ファイル名から出力ファイル名を生成
+            base_filename = os.path.basename(file_path)
+            base_name = os.path.splitext(base_filename)[0]
             
             # プロットを作成（エラー回避のため、adjusted_time_us_trimmedが空でないことを確認）
             plt.figure(figsize=(12, 6))
@@ -157,14 +163,17 @@ def generate_echomap(file_path, start_time=0.444, duration=0.001,
                 # 時間軸が空の場合は、デフォルトの範囲でプロット
                 plt.imshow(hilbert_matrix_trimmed, aspect='auto', cmap='viridis',
                         vmin=0, vmax=1)
-            plt.colorbar(label='Amplitude')
-            plt.xlabel('Time (μs)')
-            plt.ylabel('Pulse Number')
+            cbar = plt.colorbar(label='Amplitude')
+            cbar.set_label('Amplitude', fontsize=16)  # カラーバーラベルのフォントサイズ
+            cbar.ax.tick_params(labelsize=14)  # カラーバー目盛りのフォントサイズ
+            plt.xlabel('Time (μs)', fontsize=16)
+            plt.ylabel('Pulse Number', fontsize=16)
             
             # 入力ファイル名から出力ファイル名を生成
             base_filename = os.path.basename(file_path)
             base_name = os.path.splitext(base_filename)[0]
-            plt.title(f'Echo map ({base_name})')
+            plt.title(f'Echo map ({base_name})', fontsize=18)
+            plt.tick_params(axis='both', which='major', labelsize=14)  # 軸目盛りのフォントサイズ
             plt.tight_layout()
             
             # パルス数を表示
@@ -181,8 +190,9 @@ def generate_echomap(file_path, start_time=0.444, duration=0.001,
             signal_data_filename = f"{base_name}_tdx1.npy"
             signal_data_path = os.path.join(output_dir, signal_data_filename)
             
-            # 保存するデータを準備（ヒルベルト変換後の信号波形）
+            # 保存するデータを準備（元の信号とヒルベルト変換後の信号波形）
             signal_data_to_save = {
+                'original_matrix': original_matrix,  # ヒルベルト変換前の元の信号行列
                 'hilbert_matrix': hilbert_matrix_trimmed,
                 'time_axis': adjusted_time_us_trimmed,
                 'n_pulses': n_pulses
@@ -353,6 +363,9 @@ def generate_bin(file_path, channels=["TDX1"], start_time=0.444, duration=0.001,
         hilbert_matrix_trimmed = hilbert_matrix[:, zero_samples:]
         adjusted_time_us_trimmed = adjusted_time_us[adjusted_time_us >= 0]
         
+        # 元の信号行列も同様にtrim（初期反射除去後の信号）
+        original_matrix = processed_pulses_np[:, zero_samples:]
+        
         # Calculate average waveform (execute on GPU)
         mean_pulse = torch.mean(all_pulses_tensor, dim=0).cpu().numpy()
         std_pulse = torch.std(all_pulses_tensor, dim=0).cpu().numpy()
@@ -367,6 +380,7 @@ def generate_bin(file_path, channels=["TDX1"], start_time=0.444, duration=0.001,
             'time_axis': adjusted_time_us,
             'mean_pulse': mean_pulse,
             'std_pulse': std_pulse,
+            'original_matrix': original_matrix,  # 元の信号行列を追加
             'hilbert_matrix': hilbert_matrix_trimmed,
             'time_axis_trimmed': adjusted_time_us_trimmed,
             'n_pulses': n_pulses
@@ -385,6 +399,7 @@ def generate_bin(file_path, channels=["TDX1"], start_time=0.444, duration=0.001,
             # Prepare data to save
             data_to_save = {
                 'raw_pulses': triggered_pulses,
+                'original_matrix': original_matrix,  # 元の信号行列を追加
                 'hilbert_matrix': hilbert_matrix_trimmed,
                 'time_axis': adjusted_time_us_trimmed,
                 'n_pulses': n_pulses,
@@ -405,10 +420,13 @@ def generate_bin(file_path, channels=["TDX1"], start_time=0.444, duration=0.001,
                 plt.imshow(hilbert_matrix_trimmed, aspect='auto', cmap='viridis', 
                         extent=[0, adjusted_time_us_trimmed[-1], n_pulses-0.5, -0.5],
                         vmin=0, vmax=1)
-                plt.colorbar(label='Amplitude')
-                plt.xlabel('Time (μs)')
-                plt.ylabel('Pulse Number')
-                plt.title(f'Echo Map ({base_name} - {channel})')
+                cbar = plt.colorbar(label='Amplitude')
+                cbar.set_label('Amplitude', fontsize=16)  # カラーバーラベルのフォントサイズ
+                cbar.ax.tick_params(labelsize=14)  # カラーバー目盛りのフォントサイズ
+                plt.xlabel('Time (μs)', fontsize=16)
+                plt.ylabel('Pulse Number', fontsize=16)
+                plt.title(f'Echo Map ({base_name} - {channel})', fontsize=18)
+                plt.tick_params(axis='both', which='major', labelsize=14)  # 軸目盛りのフォントサイズ
                 plt.tight_layout()
                 
                 # Save image

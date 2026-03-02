@@ -5,6 +5,8 @@ from typing import List, Tuple, Optional
 import os
 import json
 import h5py
+import glob
+import shutil
 from scipy.signal import hilbert
 def detect_triggers_from_signal(
     file_path: str,
@@ -151,9 +153,6 @@ def arrange_trigger_points(trigger_points, window_width, signal_chunk, fs):
     #print(f"triggered_pulses.shape: {triggered_pulses.shape}")
     return triggered_pulses
 def convert_exp(file_path,start_time,duration,amplitude_threshold,window_width,signal_key):
-    amplitude_threshold = 2  # Amplitude threshold
-    window_width = 0.1e-3  
-    signal_key = "TDX1"
     triggers, signal_chunk, fs = detect_triggers_from_signal(
         file_path=file_path,
         start_time=start_time,
@@ -173,7 +172,7 @@ def convert_exp(file_path,start_time,duration,amplitude_threshold,window_width,s
     #print(mat_data['TDX1_enlarged'].shape)
     if np.isinf(mat_data['TDX1']).any():
         print("Warning: arranged_pulses contains inf values. Replacing infs with 0.")
-        mat_data['TDX1'] = np.nan_to_num(mat_data['TDX1'], nan=0.0)
+        mat_data['TDX1'] = np.nan_to_num(mat_data['TDX1'], nan=0.0, posinf=0.0, neginf=0.0)
     if np.isnan(mat_data['TDX1']).any():
         print("Warning: arranged_pulses contains nan values. Replacing nans with 0.")
         mat_data['TDX1'] = np.nan_to_num(mat_data['TDX1'], nan=0.0)
@@ -302,6 +301,7 @@ def mat2npz_exp(file_path, output_dir, start_time=0.0, duration=5.0, amplitude_t
     save_path : str
         Path to the saved .npz file.
     """
+    os.makedirs(output_dir, exist_ok=True)
     # Convert the experimental data using convert_exp
     raw_data, fs = convert_exp(
         file_path,
@@ -316,12 +316,9 @@ def mat2npz_exp(file_path, output_dir, start_time=0.0, duration=5.0, amplitude_t
     processed_data=raw_data[100:14100,2708:,:]
     print(f"processed_data.shape: {processed_data.shape}")
     print(f"max: {np.max(processed_data)}")
-    if np.isnan(processed_data).any():
-        print("Warning: processed_data contains NaN values. Replacing NaNs with 0.")
-        processed_data = np.nan_to_num(processed_data, nan=0.0)
-    if np.isinf(processed_data).any():
-        print("Warning: processed_data contains inf values. Replacing infs with 0.")
-        processed_data = np.nan_to_num(processed_data, nan=0.0)
+    if np.isnan(processed_data).any() or np.isinf(processed_data).any():
+        print("Warning: processed_data contains NaN/inf values. Replacing with 0.")
+        processed_data = np.nan_to_num(processed_data, nan=0.0, posinf=0.0, neginf=0.0)
     i=0
     print(f"processed_data[{i},:,0].shape: {processed_data[i,:,0].shape}")
     print(f"max: {np.max(processed_data[i,:,0])}")
@@ -358,4 +355,38 @@ def mat2npz_exp(file_path, output_dir, start_time=0.0, duration=5.0, amplitude_t
     np.savez(save_path, **save_dict)
     print(f"Processed data and metadata saved to: {save_path}")
     return save_path
+def batch_convert_sim(case_name: str, base_data_dir: str) -> None:
+    """
+    Convert all simulation .mat files in the specified case directory to .npz format.
 
+    Parameters
+    ----------
+    case_name : str
+        The name of the simulation case (e.g., "case5").
+    base_data_dir : str
+        The base directory where simulation data is stored.
+    """
+    # Define input directory for raw simulation signals (relative to base_data_dir and case_name)
+    mat_dir = os.path.join(base_data_dir, f"rawsignal/{case_name}/data")
+
+    # Define config file path (relative to base_data_dir and case_name)
+    config_path = os.path.join(base_data_dir, f"rawsignal/{case_name}/config.json")
+
+    # Define output directory for processed files (relative to base_data_dir and case_name)
+    output_dir = os.path.join(base_data_dir, f"processed/{case_name}")
+
+    # Create the output directory if it does not exist
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        print(f"Created output directory: {output_dir}")
+
+    # Save a copy of the config.json file to the output directory for reference
+    config_copy_path = os.path.join(output_dir, "config.json")
+    shutil.copy2(config_path, config_copy_path)
+    print(f"Copied config.json to: {config_copy_path}")
+
+    # Process all .mat files in the input directory
+    mat_files_list = glob.glob(os.path.join(mat_dir, "*.mat"))
+    for mat_file in mat_files_list:
+        print(f"Processing: {mat_file}")
+        mat2npz_sim(mat_file, config_path, output_dir)

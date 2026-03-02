@@ -312,9 +312,10 @@ def npz2png(file_path, save_path, channel_index=0, start_time=0.0, end_time=None
         plt.imshow(img_data, aspect='auto', cmap='viridis', extent=[t[0]*1e6, t[-1]*1e6, img_data.shape[0]-0.5, -0.5])
         #plt.imshow(img_data, aspect='auto', cmap='viridis', extent=[t[0], t[-1], img_data.shape[0]-0.5, -0.5])
         plt.colorbar(label='Amplitude')
-        plt.xlabel('Time (μs)')
-        plt.ylabel('Pulse Number')
-        plt.title('All Pulses (Channel {})'.format(channel_index))
+        plt.xlabel('Time (μs)',fontsize=24)
+        plt.ylabel('Pulse Number',fontsize=24)
+        plt.title('All Pulses (Channel {})'.format(channel_index),fontsize=24)
+        plt.tick_params(labelsize=18)
         plt.tight_layout()
         import os
         base_name = os.path.splitext(os.path.basename(file_path))[0]
